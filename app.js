@@ -770,6 +770,22 @@ function initTimeControls() {
     });
   });
 
+  // Pre-fill custom datetime inputs with midnight so users don't have to enter a time
+  const startInput = document.getElementById('date-start');
+  const endInput = document.getElementById('date-end');
+  
+  const ext = globalExtent();
+  const endD = ext ? ext[1] : new Date();
+  const startD = new Date(endD.getTime() - 7 * 24 * 3600 * 1000);
+  
+  const toLocalISOString = (d) => {
+    const pad = n => n.toString().padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T00:00`;
+  };
+
+  if (!startInput.value) startInput.value = toLocalISOString(startD);
+  if (!endInput.value) endInput.value = toLocalISOString(endD);
+
   document.getElementById('apply-range-btn').addEventListener('click', () => {
     const s = document.getElementById('date-start').value;
     const e = document.getElementById('date-end').value;
