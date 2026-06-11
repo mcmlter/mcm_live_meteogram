@@ -123,14 +123,7 @@ function globalExtent() {
 }
 
 function effectiveTimeDomain() {
-  if (state.timeDomain) return state.timeDomain;
-  const ext = globalExtent();
-  if (!ext) return [new Date(Date.now() - 86400000), new Date()];
-  
-  // Default to 7 days backwards from the latest available data
-  const end = ext[1];
-  const start = new Date(end.getTime() - 7 * 24 * 3600 * 1000);
-  return [start, end];
+  return state.timeDomain || globalExtent() || [new Date(Date.now() - 86400000), new Date()];
 }
 
 // ─── Chart drawing ────────────────────────────────────────────
@@ -450,7 +443,7 @@ function drawWindPanel(datasets) {
       redrawPanels();
     });
   }
-  
+
   const manual = state.manualY['wind'];
   controls.querySelector('.y-max').value = manual && manual[1] !== null ? manual[1] : '';
 
@@ -555,9 +548,9 @@ function attachZoom(svg, panelId, innerW, innerH) {
         const ext = globalExtent();
         if (!ext) return;
         const baseScale = d3.scaleTime().domain(ext).range([0, innerW]);
-        
+
         state.timeDomain = event.transform.rescaleX(baseScale).domain();
-        
+
         // Sync transforms across all panels without triggering events
         for (const [id, otherZoom] of zoomBehaviors.entries()) {
           if (id !== panelId) {
@@ -567,12 +560,12 @@ function attachZoom(svg, panelId, innerW, innerH) {
             }
           }
         }
-        
+
         redrawPanels();
       });
     zoomBehaviors.set(panelId, zoom);
   }
-  
+
   if (isNew) overlay.call(zoom);
 
   // Sync this overlay's D3 state with the current timeDomain (e.g. if preset changed)
@@ -754,16 +747,13 @@ function initTimeControls() {
       document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       const hours = btn.dataset.hours;
-      
+
       if (hours === 'all') {
         state.timeDomain = null;
       } else {
-        const ext = globalExtent();
-        if (ext) {
-          const end = ext[1]; // Use latest data point, not Date.now()!
-          const start = new Date(end.getTime() - hours * 3600000);
-          state.timeDomain = [start, end];
-        }
+        const end = new Date();
+        const start = new Date(end - hours * 3600000);
+        state.timeDomain = [start, end];
       }
       redrawPanels();
     });
