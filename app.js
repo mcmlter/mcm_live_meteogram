@@ -22,6 +22,7 @@ const PANELS = [
   { id: 'pressure', field: 'barom_pres', label: 'Barometric Pressure', unit: 'hPa', fmt: v => v.toFixed(1) },
   { id: 'solar', field: 'sw_rad_in', label: 'Solar Radiation', unit: 'W/m²', fmt: v => v.toFixed(2) },
   { id: 'wind', field: 'wind_spd_avg', label: 'Wind Speed & Direction', unit: 'kt', fmt: v => v.toFixed(1), isWind: true },
+  { id: 'battery', field: 'battv_min', label: 'Battery Voltage', unit: 'V', fmt: v => v.toFixed(2) },
 ];
 
 const MARGIN = { top: 10, right: 20, bottom: 30, left: 58 };
@@ -32,7 +33,7 @@ const state = {
   activeStations: [],      // array of station codes currently selected
   cache: new Map(),        // code → parsed data array
   timeDomain: [new Date(Date.now() - 7 * 24 * 3600000), new Date()], // Default to 7 days to match HTML
-  panelVisible: Object.fromEntries(PANELS.map(p => [p.id, true])),
+  panelVisible: Object.fromEntries(PANELS.map(p => [p.id, p.id !== 'battery'])),
   manualY: {},             // per-panel manual Y domain: { panelId: [min, max] }
   // shared D3 scales (time axis linked across panels)
   xScale: null,
@@ -65,6 +66,7 @@ function parseRow(d) {
     solar: num(d.sw_rad_in),
     wind_spd: d.wind_spd_avg !== '' && d.wind_spd_avg != null ? num(d.wind_spd_avg) * MS_TO_KT : null,
     wind_dir: num(d.wind_direction),
+    battery: num(d.battv_min),
   };
 }
 
@@ -75,6 +77,7 @@ function fieldForPanel(p, row) {
     pressure: row.pressure,
     solar: row.solar,
     wind: row.wind_spd,
+    battery: row.battery,
   };
   return map[p.id];
 }

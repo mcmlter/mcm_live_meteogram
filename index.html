@@ -85,6 +85,10 @@
             <input type="checkbox" data-panel="wind" checked />
             Wind
           </label>
+          <label class="toggle-pill">
+            <input type="checkbox" data-panel="battery" />
+            Battery
+          </label>
         </div>
       </div>
     </div>
@@ -119,6 +123,11 @@
       <div id="panel-wind" class="chart-panel" data-panel="wind">
         <div class="panel-header"><span class="panel-title">Wind Speed &amp; Direction</span><span
             class="panel-unit">kt</span></div>
+        <div class="panel-svg-container"></div>
+      </div>
+      <div id="panel-battery" class="chart-panel hidden" data-panel="battery">
+        <div class="panel-header"><span class="panel-title">Battery Voltage</span><span
+            class="panel-unit">V</span></div>
         <div class="panel-svg-container"></div>
       </div>
     </div>
