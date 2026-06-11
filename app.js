@@ -33,6 +33,7 @@ const state = {
   cache: new Map(),        // code → parsed data array
   timeDomain: null,        // [Date, Date] or null (= all)
   panelVisible: Object.fromEntries(PANELS.map(p => [p.id, true])),
+  manualY: {},             // per-panel manual Y domain: { panelId: [min, max] }
   // shared D3 scales (time axis linked across panels)
   xScale: null,
   transform: d3.zoomIdentity,
@@ -170,6 +171,49 @@ function drawScalarPanel(panel, datasets) {
     return rows.some(r => fieldForPanel(panel, r) !== null);
   });
 
+  // --- Add Y-axis controls to header if missing ---
+  let controls = panelEl.querySelector('.y-controls');
+  if (!controls) {
+    const header = panelEl.querySelector('.panel-header');
+    controls = document.createElement('div');
+    controls.className = 'y-controls';
+    controls.innerHTML = `
+      <label>Min <input type="number" class="y-min" step="any" placeholder="Auto"></label>
+      <label>Max <input type="number" class="y-max" step="any" placeholder="Auto"></label>
+      <button class="y-auto-btn">Auto</button>
+    `;
+    header.appendChild(controls);
+
+    const minIn = controls.querySelector('.y-min');
+    const maxIn = controls.querySelector('.y-max');
+    const autoBtn = controls.querySelector('.y-auto-btn');
+
+    const updateManual = () => {
+      const mn = parseFloat(minIn.value);
+      const mx = parseFloat(maxIn.value);
+      if (isNaN(mn) && isNaN(mx)) {
+        delete state.manualY[panel.id];
+      } else {
+        const cur = state.manualY[panel.id] || [null, null];
+        state.manualY[panel.id] = [isNaN(mn) ? cur[0] : mn, isNaN(mx) ? cur[1] : mx];
+      }
+      redrawPanels();
+    };
+
+    minIn.addEventListener('change', updateManual);
+    maxIn.addEventListener('change', updateManual);
+    autoBtn.addEventListener('click', () => {
+      minIn.value = '';
+      maxIn.value = '';
+      delete state.manualY[panel.id];
+      redrawPanels();
+    });
+  }
+  // Sync inputs with state
+  const manual = state.manualY[panel.id];
+  controls.querySelector('.y-min').value = manual && manual[0] !== null ? manual[0] : '';
+  controls.querySelector('.y-max').value = manual && manual[1] !== null ? manual[1] : '';
+
   if (activeDatasets.length === 0) {
     root.selectAll('*').remove();
     const container = document.querySelector(`#panel-${panel.id} .panel-svg-container`);
@@ -189,8 +233,15 @@ function drawScalarPanel(panel, datasets) {
       if (v !== null) allVals.push(v);
     }
   }
-  const [yMin, yMax] = d3.extent(allVals);
-  const yPad = (yMax - yMin) * 0.08 || 1;
+  let [yMin, yMax] = d3.extent(allVals);
+  if (yMin === undefined) [yMin, yMax] = [0, 10]; // Fallback if no data in view
+  let yPad = (yMax - yMin) * 0.08 || 1;
+
+  if (manual) {
+    if (manual[0] !== null) { yMin = manual[0]; yPad = 0; }
+    if (manual[1] !== null) { yMax = manual[1]; yPad = 0; }
+  }
+
   const yScale = d3.scaleLinear()
     .domain([yMin - yPad, yMax + yPad])
     .range([innerH, 0])
@@ -360,6 +411,42 @@ function drawWindPanel(datasets) {
     rows.some(r => r.wind_spd !== null && r.wind_dir !== null)
   );
 
+  // --- Add Y-axis controls to header if missing ---
+  let controls = panelEl.querySelector('.y-controls');
+  if (!controls) {
+    const header = panelEl.querySelector('.panel-header');
+    controls = document.createElement('div');
+    controls.className = 'y-controls';
+    controls.innerHTML = `
+      <label>Max <input type="number" class="y-max" step="any" placeholder="Auto"></label>
+      <button class="y-auto-btn">Auto</button>
+    `;
+    header.appendChild(controls);
+
+    const maxIn = controls.querySelector('.y-max');
+    const autoBtn = controls.querySelector('.y-auto-btn');
+
+    const updateManual = () => {
+      const mx = parseFloat(maxIn.value);
+      if (isNaN(mx)) {
+        delete state.manualY['wind'];
+      } else {
+        state.manualY['wind'] = [0, mx];
+      }
+      redrawPanels();
+    };
+
+    maxIn.addEventListener('change', updateManual);
+    autoBtn.addEventListener('click', () => {
+      maxIn.value = '';
+      delete state.manualY['wind'];
+      redrawPanels();
+    });
+  }
+  
+  const manual = state.manualY['wind'];
+  controls.querySelector('.y-max').value = manual && manual[1] !== null ? manual[1] : '';
+
   if (activeDatasets.length === 0) {
     root.selectAll('*').remove();
     const container = document.querySelector('#panel-wind .panel-svg-container');
@@ -379,9 +466,11 @@ function drawWindPanel(datasets) {
       if (r.wind_spd !== null && r.time >= t0 && r.time <= t1) allSpeeds.push(r.wind_spd);
     }
   }
-  const maxSpd = d3.max(allSpeeds) || 10;
+  let maxSpd = d3.max(allSpeeds) || 10;
+  if (manual && manual[1] !== null) maxSpd = manual[1];
+
   const yScale = d3.scaleLinear()
-    .domain([0, maxSpd * 1.12])
+    .domain([0, manual ? maxSpd : maxSpd * 1.12])
     .range([innerH, 0])
     .nice();
 
@@ -448,7 +537,6 @@ function attachZoom(svg, panelId, xScale, innerW, innerH, onZoom) {
 
   const zoom = d3.zoom()
     .scaleExtent([0.5, 200])
-    .translateExtent([[0, 0], [innerW, innerH]])
     .on('zoom', (event) => {
       // Sync zoom state and redraw all panels
       state.transform = event.transform;
