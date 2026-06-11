@@ -1,12 +1,15 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>MCM Live Meteogram — McMurdo Station Weather</title>
-  <meta name="description" content="Interactive time-series meteorological visualizations for McMurdo Station weather monitoring stations in Antarctica. Displays temperature, humidity, pressure, solar radiation, and wind." />
+  <meta name="description"
+    content="Interactive time-series meteorological visualizations for McMurdo Station weather monitoring stations in Antarctica. Displays temperature, humidity, pressure, solar radiation, and wind." />
   <link rel="stylesheet" href="style.css" />
 </head>
+
 <body>
 
   <div id="app">
@@ -14,7 +17,7 @@
     <header id="app-header">
       <div id="header-title">
         <h1>MCM Live Meteogram</h1>
-        <p class="subtitle">McMurdo Station Antarctic Weather Data</p>
+        <!-- <p class="subtitle">McMurdo Station Antarctic Weather Data</p> -->
       </div>
     </header>
 
@@ -26,7 +29,9 @@
         <div id="station-selector-wrapper">
           <button id="station-dropdown-btn" aria-haspopup="listbox" aria-expanded="false">
             <span id="station-dropdown-label">Select stations…</span>
-            <svg class="chevron" viewBox="0 0 10 6" width="10" height="6"><path d="M0 0l5 6 5-6z" fill="currentColor"/></svg>
+            <svg class="chevron" viewBox="0 0 10 6" width="10" height="6">
+              <path d="M0 0l5 6 5-6z" fill="currentColor" />
+            </svg>
           </button>
           <ul id="station-dropdown" role="listbox" aria-multiselectable="true" hidden>
             <!-- populated by JS -->
@@ -97,19 +102,23 @@
         <div class="panel-svg-container"></div>
       </div>
       <div id="panel-humidity" class="chart-panel" data-panel="humidity">
-        <div class="panel-header"><span class="panel-title">Relative Humidity</span><span class="panel-unit">%</span></div>
+        <div class="panel-header"><span class="panel-title">Relative Humidity</span><span class="panel-unit">%</span>
+        </div>
         <div class="panel-svg-container"></div>
       </div>
       <div id="panel-pressure" class="chart-panel" data-panel="pressure">
-        <div class="panel-header"><span class="panel-title">Barometric Pressure</span><span class="panel-unit">hPa</span></div>
+        <div class="panel-header"><span class="panel-title">Barometric Pressure</span><span
+            class="panel-unit">hPa</span></div>
         <div class="panel-svg-container"></div>
       </div>
       <div id="panel-solar" class="chart-panel" data-panel="solar">
-        <div class="panel-header"><span class="panel-title">Solar Radiation (Incoming)</span><span class="panel-unit">W/m²</span></div>
+        <div class="panel-header"><span class="panel-title">Solar Radiation (Incoming)</span><span
+            class="panel-unit">W/m²</span></div>
         <div class="panel-svg-container"></div>
       </div>
       <div id="panel-wind" class="chart-panel" data-panel="wind">
-        <div class="panel-header"><span class="panel-title">Wind Speed &amp; Direction</span><span class="panel-unit">kt</span></div>
+        <div class="panel-header"><span class="panel-title">Wind Speed &amp; Direction</span><span
+            class="panel-unit">kt</span></div>
         <div class="panel-svg-container"></div>
       </div>
     </div>
@@ -122,4 +131,5 @@
   <script src="https://d3js.org/d3.v7.min.js"></script>
   <script src="app.js"></script>
 </body>
+
 </html>
