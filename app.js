@@ -6,22 +6,22 @@
 'use strict';
 
 // ─── Constants ────────────────────────────────────────────────
-const STATIONS = ['boym','brhm','caam','cohm','exem','frlm','ho2m','hodm','tarm','vaam','viam'];
+const STATIONS = ['boym', 'brhm', 'caam', 'cohm', 'exem', 'frlm', 'ho2m', 'hodm', 'tarm', 'vaam', 'viam'];
 const MS_TO_KT = 1.94384;
 const GAP_THRESHOLD_MS = 2 * 60 * 60 * 1000; // 2 hours → line break
 
 // One color per station (up to 11)
 const PALETTE = [
-  '#2563eb','#dc2626','#16a34a','#d97706','#7c3aed',
-  '#0891b2','#db2777','#65a30d','#ea580c','#475569','#92400e'
+  '#2563eb', '#dc2626', '#16a34a', '#d97706', '#7c3aed',
+  '#0891b2', '#db2777', '#65a30d', '#ea580c', '#475569', '#92400e'
 ];
 
 const PANELS = [
-  { id: 'temperature', field: 'air_temp_3m',   label: 'Temperature',           unit: '°C',   fmt: v => v.toFixed(1) },
-  { id: 'humidity',    field: 'rel_hum_3m',    label: 'Relative Humidity',     unit: '%',    fmt: v => v.toFixed(1) },
-  { id: 'pressure',    field: 'barom_pres',    label: 'Barometric Pressure',   unit: 'hPa',  fmt: v => v.toFixed(1) },
-  { id: 'solar',       field: 'sw_rad_in',     label: 'Solar Radiation',       unit: 'W/m²', fmt: v => v.toFixed(2) },
-  { id: 'wind',        field: 'wind_spd_avg',  label: 'Wind Speed & Direction',unit: 'kt',   fmt: v => v.toFixed(1), isWind: true },
+  { id: 'temperature', field: 'air_temp_3m', label: 'Temperature', unit: '°C', fmt: v => v.toFixed(1) },
+  { id: 'humidity', field: 'rel_hum_3m', label: 'Relative Humidity', unit: '%', fmt: v => v.toFixed(1) },
+  { id: 'pressure', field: 'barom_pres', label: 'Barometric Pressure', unit: 'hPa', fmt: v => v.toFixed(1) },
+  { id: 'solar', field: 'sw_rad_in', label: 'Solar Radiation', unit: 'W/m²', fmt: v => v.toFixed(2) },
+  { id: 'wind', field: 'wind_spd_avg', label: 'Wind Speed & Direction', unit: 'kt', fmt: v => v.toFixed(1), isWind: true },
 ];
 
 const MARGIN = { top: 10, right: 20, bottom: 30, left: 58 };
@@ -57,23 +57,23 @@ function num(v) {
 
 function parseRow(d) {
   return {
-    time:      new Date(d.timestamp_utc),
-    temp:      num(d.air_temp_3m),
-    humidity:  num(d.rel_hum_3m),
-    pressure:  num(d.barom_pres),
-    solar:     num(d.sw_rad_in),
-    wind_spd:  d.wind_spd_avg !== '' && d.wind_spd_avg != null ? num(d.wind_spd_avg) * MS_TO_KT : null,
-    wind_dir:  num(d.wind_direction),
+    time: new Date(d.timestamp_utc),
+    temp: num(d.air_temp_3m),
+    humidity: num(d.rel_hum_3m),
+    pressure: num(d.barom_pres),
+    solar: num(d.sw_rad_in),
+    wind_spd: d.wind_spd_avg !== '' && d.wind_spd_avg != null ? num(d.wind_spd_avg) * MS_TO_KT : null,
+    wind_dir: num(d.wind_direction),
   };
 }
 
 function fieldForPanel(p, row) {
   const map = {
     temperature: row.temp,
-    humidity:    row.humidity,
-    pressure:    row.pressure,
-    solar:       row.solar,
-    wind:        row.wind_spd,
+    humidity: row.humidity,
+    pressure: row.pressure,
+    solar: row.solar,
+    wind: row.wind_spd,
   };
   return map[p.id];
 }
@@ -102,7 +102,7 @@ async function loadStation(code) {
     state.cache.set(code, rows);
     setStatus('');
     return rows;
-  } catch(e) {
+  } catch (e) {
     setStatus(`Error loading ${code.toUpperCase()}: ${e.message}`, true);
     state.cache.set(code, []);
     return [];
@@ -115,7 +115,7 @@ function globalExtent() {
   for (const rows of state.cache.values()) {
     if (!rows.length) continue;
     if (rows[0].time < min) min = rows[0].time;
-    if (rows[rows.length-1].time > max) max = rows[rows.length-1].time;
+    if (rows[rows.length - 1].time > max) max = rows[rows.length - 1].time;
   }
   if (!isFinite(min)) return null;
   return [new Date(min), new Date(max)];
@@ -141,7 +141,7 @@ function getOrCreatePanelSvg(panelId) {
       .attr('width', W)
       .attr('height', innerH + MARGIN.top + MARGIN.bottom);
     svg.append('g').attr('class', 'chart-root')
-       .attr('transform', `translate(${MARGIN.left},${MARGIN.top})`);
+      .attr('transform', `translate(${MARGIN.left},${MARGIN.top})`);
   } else {
     svg.attr('width', W).attr('height', innerH + MARGIN.top + MARGIN.bottom);
   }
@@ -286,7 +286,7 @@ function splitOnGaps(rows, valueGetter) {
  */
 function drawWindBarb(g, speed_kt, dir_deg, color) {
   const STAFF_LEN = 18;
-  const BARB_LEN  = 10;
+  const BARB_LEN = 10;
   const PENNANT_W = 5;
   const BARB_SPACING = 4;
 
@@ -303,7 +303,7 @@ function drawWindBarb(g, speed_kt, dir_deg, color) {
   // Rotate so barb points FROM the wind direction.
   // Meteorological convention: dir_deg is direction wind COMES FROM.
   // Use a child <g> with rotation; 'inner' preserves the parent translate.
-  const inner = g.append('g').attr('transform', `rotate(${dir_deg})`);
+  const inner = g.append('g').attr('transform', `rotate(${dir_deg + 180})`);
 
   // Staff (pointing downward from the data point = into the wind)
   inner.append('line')
@@ -413,7 +413,7 @@ function drawWindPanel(datasets) {
     );
 
     // Subsample: target ~1 barb per 30px
-    const targetCount = Math.max(1, Math.floor(innerW / 30));
+    const targetCount = Math.max(1, Math.floor(innerW / 15));
     const step = Math.max(1, Math.floor(visible.length / targetCount));
     const sampled = visible.filter((_, i) => i % step === 0);
 
@@ -469,7 +469,7 @@ function attachCrosshair(svg, panelId, xScale, yScale, innerW, innerH, datasets,
   const overlay = root.select('.zoom-overlay');
 
   overlay
-    .on('mousemove', function(event) {
+    .on('mousemove', function (event) {
       const [mx] = d3.pointer(event);
       const t = xScale.invert(mx);
       // Find nearest point per station
@@ -499,7 +499,7 @@ function attachCrosshair(svg, panelId, xScale, yScale, innerW, innerH, datasets,
       const tx = Math.min(event.clientX + 14, window.innerWidth - 230);
       const ty = Math.min(event.clientY - 10, window.innerHeight - 120);
       tooltip.style.left = tx + 'px';
-      tooltip.style.top  = ty + 'px';
+      tooltip.style.top = ty + 'px';
     })
     .on('mouseleave', () => {
       tooltip.classList.remove('visible');
@@ -608,7 +608,7 @@ function updateDropdownLabel() {
 
 function initDropdownToggle() {
   const btn = document.getElementById('station-dropdown-btn');
-  const ul  = document.getElementById('station-dropdown');
+  const ul = document.getElementById('station-dropdown');
   btn.addEventListener('click', (e) => {
     e.stopPropagation();
     const open = ul.hidden === false;
