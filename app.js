@@ -178,8 +178,8 @@ function drawScalarPanel(panel, datasets) {
     controls = document.createElement('div');
     controls.className = 'y-controls';
     controls.innerHTML = `
-      <label>Min <input type="number" class="y-min" step="any" placeholder="Auto"></label>
-      <label>Max <input type="number" class="y-max" step="any" placeholder="Auto"></label>
+      <label>Y-Min <input type="number" class="y-min" step="any" placeholder="Auto"></label>
+      <label>Y-Max <input type="number" class="y-max" step="any" placeholder="Auto"></label>
       <button class="y-auto-btn">Auto</button>
     `;
     header.appendChild(controls);
@@ -418,8 +418,8 @@ function drawWindPanel(datasets) {
     controls = document.createElement('div');
     controls.className = 'y-controls';
     controls.innerHTML = `
-      <label>Min <input type="number" class="y-min" step="any" placeholder="Auto"></label>
-      <label>Max <input type="number" class="y-max" step="any" placeholder="Auto"></label>
+      <label>Y-Min <input type="number" class="y-min" step="any" placeholder="Auto"></label>
+      <label>Y-Max <input type="number" class="y-max" step="any" placeholder="Auto"></label>
       <button class="y-auto-btn">Auto</button>
     `;
     header.appendChild(controls);

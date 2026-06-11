@@ -398,7 +398,7 @@ body {
 }
 
 .y-controls input {
-  width: 50px;
+  width: 40px;
   font-size: 11px;
   padding: 2px 4px;
   border: 1px solid var(--border);
