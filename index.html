@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MCM Live Meteogram — McMurdo Station Weather</title>
+  <meta name="description" content="Interactive time-series meteorological visualizations for McMurdo Station weather monitoring stations in Antarctica. Displays temperature, humidity, pressure, solar radiation, and wind." />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <div id="app">
+
+    <header id="app-header">
+      <div id="header-title">
+        <h1>MCM Live Meteogram</h1>
+        <p class="subtitle">McMurdo Station Antarctic Weather Data</p>
+      </div>
+    </header>
+
+    <div id="controls">
+
+      <!-- Station selector -->
+      <div class="control-group" id="station-control">
+        <label for="station-select">Stations</label>
+        <div id="station-selector-wrapper">
+          <button id="station-dropdown-btn" aria-haspopup="listbox" aria-expanded="false">
+            <span id="station-dropdown-label">Select stations…</span>
+            <svg class="chevron" viewBox="0 0 10 6" width="10" height="6"><path d="M0 0l5 6 5-6z" fill="currentColor"/></svg>
+          </button>
+          <ul id="station-dropdown" role="listbox" aria-multiselectable="true" hidden>
+            <!-- populated by JS -->
+          </ul>
+        </div>
+      </div>
+
+      <!-- Time range presets -->
+      <div class="control-group" id="time-preset-control">
+        <label>Time range</label>
+        <div class="button-group" id="time-presets">
+          <button class="preset-btn" data-hours="24">24 h</button>
+          <button class="preset-btn" data-hours="168">7 d</button>
+          <button class="preset-btn" data-hours="720">30 d</button>
+          <button class="preset-btn active" data-hours="all">All</button>
+        </div>
+      </div>
+
+      <!-- Custom date range -->
+      <div class="control-group" id="custom-range-control">
+        <label>Custom range</label>
+        <div id="custom-range-inputs">
+          <input type="datetime-local" id="date-start" />
+          <span class="range-sep">→</span>
+          <input type="datetime-local" id="date-end" />
+          <button id="apply-range-btn">Apply</button>
+        </div>
+      </div>
+
+      <!-- Panel toggles -->
+      <div class="control-group" id="panel-toggle-control">
+        <label>Panels</label>
+        <div class="toggle-group">
+          <label class="toggle-pill">
+            <input type="checkbox" data-panel="temperature" checked />
+            Temperature
+          </label>
+          <label class="toggle-pill">
+            <input type="checkbox" data-panel="humidity" checked />
+            Humidity
+          </label>
+          <label class="toggle-pill">
+            <input type="checkbox" data-panel="pressure" checked />
+            Pressure
+          </label>
+          <label class="toggle-pill">
+            <input type="checkbox" data-panel="solar" checked />
+            Solar Rad.
+          </label>
+          <label class="toggle-pill">
+            <input type="checkbox" data-panel="wind" checked />
+            Wind
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <!-- Legend -->
+    <div id="legend" aria-label="Station legend"></div>
+
+    <!-- Status / error messages -->
+    <div id="status-bar" aria-live="polite"></div>
+
+    <!-- Chart panels -->
+    <div id="charts">
+      <div id="panel-temperature" class="chart-panel" data-panel="temperature">
+        <div class="panel-header"><span class="panel-title">Temperature</span><span class="panel-unit">°C</span></div>
+        <div class="panel-svg-container"></div>
+      </div>
+      <div id="panel-humidity" class="chart-panel" data-panel="humidity">
+        <div class="panel-header"><span class="panel-title">Relative Humidity</span><span class="panel-unit">%</span></div>
+        <div class="panel-svg-container"></div>
+      </div>
+      <div id="panel-pressure" class="chart-panel" data-panel="pressure">
+        <div class="panel-header"><span class="panel-title">Barometric Pressure</span><span class="panel-unit">hPa</span></div>
+        <div class="panel-svg-container"></div>
+      </div>
+      <div id="panel-solar" class="chart-panel" data-panel="solar">
+        <div class="panel-header"><span class="panel-title">Solar Radiation (Incoming)</span><span class="panel-unit">W/m²</span></div>
+        <div class="panel-svg-container"></div>
+      </div>
+      <div id="panel-wind" class="chart-panel" data-panel="wind">
+        <div class="panel-header"><span class="panel-title">Wind Speed &amp; Direction</span><span class="panel-unit">kt</span></div>
+        <div class="panel-svg-container"></div>
+      </div>
+    </div>
+
+    <!-- Tooltip -->
+    <div id="tooltip" role="tooltip" aria-hidden="true"></div>
+
+  </div><!-- /#app -->
+
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
