@@ -809,6 +809,7 @@ function initPanelToggles() {
       state.panelVisible[id] = cb.checked;
       const panelEl = document.getElementById(`panel-${id}`);
       if (panelEl) panelEl.classList.toggle('hidden', !cb.checked);
+      redrawPanels(); // Force a redraw so newly visible panels are populated
     });
   });
 }
