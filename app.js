@@ -31,7 +31,7 @@ const PANEL_HEIGHT = 160; // inner chart height in px
 const state = {
   activeStations: [],      // array of station codes currently selected
   cache: new Map(),        // code → parsed data array
-  timeDomain: null,        // [Date, Date] or null (= all)
+  timeDomain: [new Date(Date.now() - 7 * 24 * 3600000), new Date()], // Default to 7 days to match HTML
   panelVisible: Object.fromEntries(PANELS.map(p => [p.id, true])),
   manualY: {},             // per-panel manual Y domain: { panelId: [min, max] }
   // shared D3 scales (time axis linked across panels)
@@ -418,26 +418,32 @@ function drawWindPanel(datasets) {
     controls = document.createElement('div');
     controls.className = 'y-controls';
     controls.innerHTML = `
+      <label>Min <input type="number" class="y-min" step="any" placeholder="Auto"></label>
       <label>Max <input type="number" class="y-max" step="any" placeholder="Auto"></label>
       <button class="y-auto-btn">Auto</button>
     `;
     header.appendChild(controls);
 
+    const minIn = controls.querySelector('.y-min');
     const maxIn = controls.querySelector('.y-max');
     const autoBtn = controls.querySelector('.y-auto-btn');
 
     const updateManual = () => {
+      const mn = parseFloat(minIn.value);
       const mx = parseFloat(maxIn.value);
-      if (isNaN(mx)) {
+      if (isNaN(mn) && isNaN(mx)) {
         delete state.manualY['wind'];
       } else {
-        state.manualY['wind'] = [0, mx];
+        const cur = state.manualY['wind'] || [null, null];
+        state.manualY['wind'] = [isNaN(mn) ? cur[0] : mn, isNaN(mx) ? cur[1] : mx];
       }
       redrawPanels();
     };
 
+    minIn.addEventListener('change', updateManual);
     maxIn.addEventListener('change', updateManual);
     autoBtn.addEventListener('click', () => {
+      minIn.value = '';
       maxIn.value = '';
       delete state.manualY['wind'];
       redrawPanels();
@@ -445,6 +451,7 @@ function drawWindPanel(datasets) {
   }
 
   const manual = state.manualY['wind'];
+  controls.querySelector('.y-min').value = manual && manual[0] !== null ? manual[0] : '';
   controls.querySelector('.y-max').value = manual && manual[1] !== null ? manual[1] : '';
 
   if (activeDatasets.length === 0) {
@@ -467,10 +474,14 @@ function drawWindPanel(datasets) {
     }
   }
   let maxSpd = d3.max(allSpeeds) || 10;
-  if (manual && manual[1] !== null) maxSpd = manual[1];
+  let minSpd = 0;
+  if (manual) {
+    if (manual[0] !== null) minSpd = manual[0];
+    if (manual[1] !== null) maxSpd = manual[1];
+  }
 
   const yScale = d3.scaleLinear()
-    .domain([0, manual ? maxSpd : maxSpd * 1.12])
+    .domain([minSpd, manual && manual[1] !== null ? maxSpd : maxSpd * 1.12])
     .range([innerH, 0])
     .nice();
 
