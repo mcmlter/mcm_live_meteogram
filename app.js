@@ -123,7 +123,14 @@ function globalExtent() {
 }
 
 function effectiveTimeDomain() {
-  return state.timeDomain || globalExtent() || [new Date(Date.now() - 86400000), new Date()];
+  if (state.timeDomain) return state.timeDomain;
+  const ext = globalExtent();
+  if (!ext) return [new Date(Date.now() - 86400000), new Date()];
+  
+  // Default to 7 days backwards from the latest available data
+  const end = ext[1];
+  const start = new Date(end.getTime() - 7 * 24 * 3600 * 1000);
+  return [start, end];
 }
 
 // ─── Chart drawing ────────────────────────────────────────────
@@ -306,7 +313,7 @@ function drawScalarPanel(panel, datasets) {
       .attr('stroke-width', 1);
   }
 
-  attachZoom(svg, panel.id, xScale, innerW, innerH, () => redrawPanels());
+  attachZoom(svg, panel.id, innerW, innerH);
   attachCrosshair(svg, panel.id, xScale, yScale, innerW, innerH, activeDatasets, panel);
 }
 
@@ -518,35 +525,65 @@ function drawWindPanel(datasets) {
     }
   }
 
-  attachZoom(svg, 'wind', xScale, innerW, innerH, () => redrawPanels());
+  attachZoom(svg, 'wind', innerW, innerH);
 }
 
 // ─── Zoom/pan (linked) ────────────────────────────────────────
 const zoomBehaviors = new Map(); // panelId → d3.zoom
 
-function attachZoom(svg, panelId, xScale, innerW, innerH, onZoom) {
+function attachZoom(svg, panelId, innerW, innerH) {
   const root = svg.select('.chart-root');
 
-  // Remove old overlay
-  root.select('.zoom-overlay').remove();
+  let overlay = root.select('.zoom-overlay');
+  let isNew = false;
+  if (overlay.empty()) {
+    overlay = root.append('rect')
+      .attr('class', 'zoom-overlay')
+      .attr('fill', 'none')
+      .attr('pointer-events', 'all');
+    isNew = true;
+  }
+  overlay.attr('width', innerW).attr('height', innerH);
 
-  const overlay = root.append('rect')
-    .attr('class', 'zoom-overlay')
-    .attr('width', innerW)
-    .attr('height', innerH);
+  let zoom = zoomBehaviors.get(panelId);
+  if (!zoom) {
+    zoom = d3.zoom()
+      .scaleExtent([1, 1000]) // Allow zooming deeply
+      .on('zoom', (event) => {
+        if (!event.sourceEvent) return; // Ignore programmatic zoom calls
 
-  const zoom = d3.zoom()
-    .scaleExtent([0.5, 200])
-    .on('zoom', (event) => {
-      // Sync zoom state and redraw all panels
-      state.transform = event.transform;
-      const newX = state.transform.rescaleX(xScale);
-      state.timeDomain = newX.domain();
-      redrawPanels();
-    });
+        const ext = globalExtent();
+        if (!ext) return;
+        const baseScale = d3.scaleTime().domain(ext).range([0, innerW]);
+        
+        state.timeDomain = event.transform.rescaleX(baseScale).domain();
+        
+        // Sync transforms across all panels without triggering events
+        for (const [id, otherZoom] of zoomBehaviors.entries()) {
+          if (id !== panelId) {
+            const otherOverlay = d3.select(`#panel-${id} .zoom-overlay`);
+            if (!otherOverlay.empty()) {
+              otherOverlay.node().__zoom = event.transform;
+            }
+          }
+        }
+        
+        redrawPanels();
+      });
+    zoomBehaviors.set(panelId, zoom);
+  }
+  
+  if (isNew) overlay.call(zoom);
 
-  overlay.call(zoom);
-  zoomBehaviors.set(panelId, zoom);
+  // Sync this overlay's D3 state with the current timeDomain (e.g. if preset changed)
+  const ext = globalExtent();
+  if (ext && state.timeDomain) {
+    const baseScale = d3.scaleTime().domain(ext).range([0, innerW]);
+    const k = (ext[1] - ext[0]) / (state.timeDomain[1] - state.timeDomain[0]);
+    const tx = -k * baseScale(state.timeDomain[0]);
+    const t = d3.zoomIdentity.translate(tx, 0).scale(k);
+    overlay.node().__zoom = t;
+  }
 }
 
 // ─── Crosshair tooltip ───────────────────────────────────────
@@ -717,12 +754,16 @@ function initTimeControls() {
       document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       const hours = btn.dataset.hours;
+      
       if (hours === 'all') {
         state.timeDomain = null;
       } else {
-        const end = new Date();
-        const start = new Date(end - hours * 3600000);
-        state.timeDomain = [start, end];
+        const ext = globalExtent();
+        if (ext) {
+          const end = ext[1]; // Use latest data point, not Date.now()!
+          const start = new Date(end.getTime() - hours * 3600000);
+          state.timeDomain = [start, end];
+        }
       }
       redrawPanels();
     });
