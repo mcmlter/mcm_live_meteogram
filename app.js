@@ -58,11 +58,8 @@ function num(v) {
 }
 
 function parseRow(d) {
-  // Ensure the string ends with 'Z' so JS explicitly knows it is UTC
-  const timeStr = d.timestamp_utc.endsWith('Z') ? d.timestamp_utc : d.timestamp_utc + 'Z';
-
   return {
-    time: new Date(timeStr),
+    time: new Date(d.timestamp_utc),
     temp: num(d.air_temp_3m),
     humidity: num(d.rel_hum_3m),
     pressure: num(d.barom_pres),
