@@ -91,17 +91,12 @@ for site in sites:
         # Convert timestamps to datetime objects to allow accurate sorting
         df_filtered["timestamp_utc"] = pd.to_datetime(df_filtered["timestamp_utc"])
 
-        # Data Loggers are UTC + 13
-        df_filtered["timestamp_utc"] = df_filtered["timestamp_utc"] - pd.Timedelta(
-            hours=13
-        )
-
         # Sort data: Most recent data first (Descending order)
         df_filtered.sort_values(by="timestamp_utc", ascending=False, inplace=True)
 
-        # Format the timestamp string back to match the '+00' UTC notation in your example
+        # Format the timestamp string with UTC notation
         df_filtered["timestamp_utc"] = df_filtered["timestamp_utc"].dt.strftime(
-            "%Y-%m-%d %H:%M:%S+00"
+            "%Y-%m-%dT%H:%M:%S+13:00"
         )
 
         # Save to the 'mcm_met' folder using the site name
