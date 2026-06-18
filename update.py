@@ -68,6 +68,10 @@ for site in sites:
         # We skip rows 0, 2, and 3 to build a clean DataFrame.
         df = pd.read_csv(io.StringIO(response.text), skiprows=[0, 2, 3])
 
+        # If the expected short name isn't there, check for the Eppley average alternate name
+        if "SwRadIn" not in df.columns and "Eppley_SwRadIn_Avg" in df.columns:
+            df.rename(columns={"Eppley_SwRadIn_Avg": "SwRadIn"}, inplace=True)
+
         # Filter for only the columns that exist in our mapping dictionary
         valid_cols = [col for col in col_mapping.keys() if col in df.columns]
         df_filtered = df[valid_cols].copy()
@@ -86,6 +90,11 @@ for site in sites:
 
         # Convert timestamps to datetime objects to allow accurate sorting
         df_filtered["timestamp_utc"] = pd.to_datetime(df_filtered["timestamp_utc"])
+
+        # Data Loggers are UTC + 13
+        df_filtered["timestamp_utc"] = df_filtered["timestamp_utc"] - pd.Timedelta(
+            hours=13
+        )
 
         # Sort data: Most recent data first (Descending order)
         df_filtered.sort_values(by="timestamp_utc", ascending=False, inplace=True)
