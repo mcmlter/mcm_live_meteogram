@@ -1,0 +1,50 @@
+name: Daily Meteorological Data Update
+
+on:
+  schedule:
+    # Runs at 00:00 UTC every single day
+    - cron: '0 0 * * *'
+  workflow_dispatch: # Allows you to manually click "Run workflow" in GitHub to test it
+
+jobs:
+  update-data:
+    runs-on: ubuntu-latest
+    
+    permissions:
+      contents: write
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.13'
+        cache: 'pip' # Speeds up subsequent runs by caching downloaded packages
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install requests pandas
+
+    - name: Run processing script
+      run: |
+        python update.py 
+
+    - name: Commit and push updated CSV files
+      run: |
+        # Configure a standard Git identity using the automated GitHub Actions bot account
+        git config --global user.name "github-actions[bot]"
+        git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+        
+        # Stage the target output directory
+        git add mcm_met/
+        
+        # Check if any data changed. If it didn't, the block safely exits without throwing a workflow error.
+        if ! git diff --cached --quiet; then
+          git commit -m "Automated daily update of meteorological CSVs"
+          git push
+        else
+          echo "No new meteorological data changes detected today."
+        fi
