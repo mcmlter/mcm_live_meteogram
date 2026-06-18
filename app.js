@@ -617,7 +617,7 @@ function attachCrosshair(svg, panelId, xScale, yScale, innerW, innerH, datasets,
         lines.push({ code, val: fieldForPanel(panel, r), time: r.time });
       }
       if (!lines.length) return;
-      const timeStr = d3.utcFormat('%Y-%m-%d %H:%M UTC')(lines[0].time);
+      const timeStr = d3.utcFormat('%Y-%m-%d %H:%M UTC+13')(lines[0].time);
       const rows = lines.map(l =>
         `<div class="tooltip-row">
            <span class="tooltip-label" style="color:${stationColor(l.code)}">${l.code.toUpperCase()}</span>
