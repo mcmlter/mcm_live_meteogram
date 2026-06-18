@@ -154,7 +154,7 @@ function getOrCreatePanelSvg(panelId) {
 
 function buildXScale(innerW) {
   const [t0, t1] = effectiveTimeDomain();
-  return d3.scaleTime().domain([t0, t1]).range([0, innerW]);
+  return d3.scaleUtc().domain([t0, t1]).range([0, innerW]);
 }
 
 /** Draw (or redraw) a scalar panel (temp, humidity, pressure, solar) */
@@ -561,7 +561,7 @@ function attachZoom(svg, panelId, innerW, innerH) {
 
         const ext = globalExtent();
         if (!ext) return;
-        const baseScale = d3.scaleTime().domain(ext).range([0, innerW]);
+        const baseScale = d3.scaleUtc().domain(ext).range([0, innerW]);
 
         state.timeDomain = event.transform.rescaleX(baseScale).domain();
 
@@ -585,7 +585,7 @@ function attachZoom(svg, panelId, innerW, innerH) {
   // Sync this overlay's D3 state with the current timeDomain (e.g. if preset changed)
   const ext = globalExtent();
   if (ext && state.timeDomain) {
-    const baseScale = d3.scaleTime().domain(ext).range([0, innerW]);
+    const baseScale = d3.scaleUtc().domain(ext).range([0, innerW]);
     const k = (ext[1] - ext[0]) / (state.timeDomain[1] - state.timeDomain[0]);
     const tx = -k * baseScale(state.timeDomain[0]);
     const t = d3.zoomIdentity.translate(tx, 0).scale(k);
@@ -617,7 +617,7 @@ function attachCrosshair(svg, panelId, xScale, yScale, innerW, innerH, datasets,
         lines.push({ code, val: fieldForPanel(panel, r), time: r.time });
       }
       if (!lines.length) return;
-      const timeStr = d3.timeFormat('%Y-%m-%d %H:%M UTC')(lines[0].time);
+      const timeStr = d3.utcFormat('%Y-%m-%d %H:%M UTC')(lines[0].time);
       const rows = lines.map(l =>
         `<div class="tooltip-row">
            <span class="tooltip-label" style="color:${stationColor(l.code)}">${l.code.toUpperCase()}</span>
@@ -776,14 +776,14 @@ function initTimeControls() {
   // Pre-fill custom datetime inputs with midnight so users don't have to enter a time
   const startInput = document.getElementById('date-start');
   const endInput = document.getElementById('date-end');
-  
+
   const ext = globalExtent();
   const endD = ext ? ext[1] : new Date();
   const startD = new Date(endD.getTime() - 7 * 24 * 3600 * 1000);
-  
+
   const toLocalISOString = (d) => {
     const pad = n => n.toString().padStart(2, '0');
-    return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T00:00`;
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T00:00`;
   };
 
   if (!startInput.value) startInput.value = toLocalISOString(startD);
