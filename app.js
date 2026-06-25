@@ -7,6 +7,28 @@
 
 // ─── Constants ────────────────────────────────────────────────
 const STATIONS = ['boym', 'brhm', 'caam', 'cohm', 'exem', 'frlm', 'ho2m', 'hodm', 'tarm', 'vaam', 'viam'];
+
+const STATION_NAMES = {
+  boym: 'Lake Bonney',
+  brhm: 'Lake Brownworth',
+  caam: 'Canada Gl',
+  cohm: 'Commonwealth Gl',
+  exem: "Explorer's Cove",
+  frlm: 'Lake Fryxell',
+  ho2m: 'Lake Hoare',
+  hodm: 'Howard Gl',
+  tarm: 'Taylor Gl',
+  vaam: 'Lake Vanda',
+  viam: 'Victoria Valley',
+  mism: 'Miers Valley',
+  frsm: 'Friis Hills',
+  flmm: 'Mt. Fleming',
+};
+
+function stationLabel(code) {
+  return STATION_NAMES[code] || code.toUpperCase();
+}
+
 const MS_TO_KT = 1.94384;
 const GAP_THRESHOLD_MS = 2 * 60 * 60 * 1000; // 2 hours → line break
 
@@ -91,7 +113,7 @@ function setStatus(msg, isError = false) {
 // ─── Data loading ─────────────────────────────────────────────
 async function loadStation(code) {
   if (state.cache.has(code)) return state.cache.get(code);
-  setStatus(`Loading ${code.toUpperCase()}…`);
+  setStatus(`Loading ${stationLabel(code)}…`);
   try {
     const raw = await d3.csv(stationFile(code));
     if (raw.length === 0) {
@@ -107,7 +129,7 @@ async function loadStation(code) {
     setStatus('');
     return rows;
   } catch (e) {
-    setStatus(`Error loading ${code.toUpperCase()}: ${e.message}`, true);
+    setStatus(`Error loading ${stationLabel(code)}: ${e.message}`, true);
     state.cache.set(code, []);
     return [];
   }
@@ -620,7 +642,7 @@ function attachCrosshair(svg, panelId, xScale, yScale, innerW, innerH, datasets,
       const timeStr = d3.utcFormat('%Y-%m-%d %H:%M UTC+13')(lines[0].time);
       const rows = lines.map(l =>
         `<div class="tooltip-row">
-           <span class="tooltip-label" style="color:${stationColor(l.code)}">${l.code.toUpperCase()}</span>
+           <span class="tooltip-label" style="color:${stationColor(l.code)}">${stationLabel(l.code)}</span>
            <span class="tooltip-value">${panel.fmt(l.val)} ${panel.unit}</span>
          </div>`
       ).join('');
@@ -686,7 +708,7 @@ function updateLegend() {
   el.innerHTML = state.activeStations.map(code => `
     <div class="legend-item">
       <span class="legend-swatch" style="background:${stationColor(code)}"></span>
-      ${code.toUpperCase()}
+      ${stationLabel(code)}
     </div>
   `).join('');
 }
@@ -704,7 +726,7 @@ function buildStationDropdown() {
     if (isVaam) li.classList.add('no-data');
     li.innerHTML = `
       <span class="check" aria-hidden="true"></span>
-      <span>${code.toUpperCase()}</span>
+      <span>${stationLabel(code)}</span>
       ${isVaam ? '<em style="font-size:11px;color:#aaa">(no data)</em>' : ''}
     `;
     if (!isVaam) {
@@ -734,7 +756,7 @@ function updateDropdownLabel() {
   if (!state.activeStations.length) {
     label.textContent = 'Select stations…';
   } else {
-    label.textContent = state.activeStations.map(c => c.toUpperCase()).join(', ');
+    label.textContent = state.activeStations.map(stationLabel).join(', ');
   }
 }
 
