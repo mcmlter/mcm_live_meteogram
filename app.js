@@ -646,7 +646,7 @@ function drawWindPanel(datasets) {
     .attr('text-anchor', 'middle')
     .attr('fill', 'var(--text-muted)')
     .attr('font-size', 10.5)
-    .text(`↓ arrows show mean direction (blowing to), avg. per ${formatDuration(bucketDurationMs)}`);
+    .text(`↓ arrows show direction (blowing to), avg. per ${formatDuration(bucketDurationMs)}`);
 
   attachZoom(svg, 'wind', innerW, innerH);
   attachCrosshair(svg, 'wind', xScale, yScale, innerW, innerH, activeDatasets, PANELS.find(p => p.id === 'wind'),
@@ -972,7 +972,7 @@ function init() {
   initPanelToggles();
 
   // Default: load first available station
-  const defaultStation = 'boym';
+  const defaultStation = 'viam';
   state.activeStations = [defaultStation];
   const li = document.querySelector(`[data-code="${defaultStation}"]`);
   if (li) {
