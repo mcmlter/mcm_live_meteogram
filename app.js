@@ -185,23 +185,36 @@ function effectiveTimeDomain() {
 // ─── Chart drawing ────────────────────────────────────────────
 
 /** Build or retrieve the shared SVG+scale for a panel */
-function getOrCreatePanelSvg(panelId) {
+function getOrCreatePanelSvg(panelId, extraBottom = 0) {
   const container = document.querySelector(`#panel-${panelId} .panel-svg-container`);
   const W = container.clientWidth || 900;
   const innerW = W - MARGIN.left - MARGIN.right;
   const innerH = PANEL_HEIGHT;
+  const totalH = innerH + MARGIN.top + MARGIN.bottom + extraBottom;
 
   let svg = d3.select(container).select('svg');
   if (svg.empty()) {
     svg = d3.select(container)
       .append('svg')
       .attr('width', W)
-      .attr('height', innerH + MARGIN.top + MARGIN.bottom);
+      .attr('height', totalH);
     svg.append('g').attr('class', 'chart-root')
       .attr('transform', `translate(${MARGIN.left},${MARGIN.top})`);
   } else {
-    svg.attr('width', W).attr('height', innerH + MARGIN.top + MARGIN.bottom);
+    svg.attr('width', W).attr('height', totalH);
   }
+
+  // Clip path restricting data lines/dots to the plot area (prevents
+  // manual y-axis scaling from letting lines/points render past the axes).
+  let defs = svg.select('defs');
+  if (defs.empty()) defs = svg.append('defs');
+  let clip = defs.select(`#clip-${panelId}`);
+  if (clip.empty()) {
+    clip = defs.append('clipPath').attr('id', `clip-${panelId}`);
+    clip.append('rect');
+  }
+  clip.select('rect').attr('x', 0).attr('y', 0).attr('width', innerW).attr('height', innerH);
+
   return { svg, innerW, innerH };
 }
 
@@ -339,7 +352,8 @@ function drawScalarPanel(panel, datasets) {
     const [t0, t1] = effectiveTimeDomain();
     const visible = rows.filter(r => r.time >= t0 && r.time <= t1);
 
-    const g = root.append('g').attr('class', 'data-layer');
+    const g = root.append('g').attr('class', 'data-layer')
+      .attr('clip-path', `url(#clip-${panel.id})`);
 
     // Line (broken at gaps)
     // We need a proper gap-aware line: split into segments
@@ -391,89 +405,79 @@ function splitOnGaps(rows, valueGetter) {
   return segs;
 }
 
-// ─── Wind barb drawing ────────────────────────────────────────
-/**
- * Draw a meteorological wind barb.
- * @param {d3.Selection} g    - a <g> element already translated to (x, y)
- * @param {number} speed_kt   - wind speed in knots
- * @param {number} dir_deg    - wind direction in degrees (direction FROM which wind blows)
- * @param {string} color
- */
-function drawWindBarb(g, speed_kt, dir_deg, color) {
-  const STAFF_LEN = 18;
-  const BARB_LEN = 10;
-  const PENNANT_W = 5;
-  const BARB_SPACING = 4;
+// ─── Wind direction arrow drawing ─────────────────────────────
+const ARROW_ROW_H = 16;      // vertical space per station's arrow row
+const ARROW_TOP_PAD = 18;    // clearance below x-axis tick labels before first row
+const ARROW_LABEL_H = 14;    // space for the averaging-period caption
 
-  // Calm: circle
-  if (speed_kt < 2.5) {
-    g.append('circle')
-      .attr('r', 4)
-      .attr('fill', 'none')
-      .attr('stroke', color)
-      .attr('stroke-width', 1.5);
-    return;
-  }
-
-  // Rotate so barb points FROM the wind direction.
-  // Meteorological convention: dir_deg is direction wind COMES FROM.
-  // Use a child <g> with rotation; 'inner' preserves the parent translate.
-  const inner = g.append('g').attr('transform', `rotate(${dir_deg + 180})`);
-
-  // Staff (pointing downward from the data point = into the wind)
-  inner.append('line')
-    .attr('x1', 0).attr('y1', 0)
-    .attr('x2', 0).attr('y2', STAFF_LEN)
-    .attr('stroke', color)
-    .attr('stroke-width', 1.5);
-
-  // Decode speed into barb components
-  let remaining = Math.round(speed_kt / 5) * 5; // round to nearest 5 kt
-  let y = STAFF_LEN; // start barbs from staff tip
-
-  // Pennants (50 kt)
-  while (remaining >= 50) {
-    inner.append('polygon')
-      .attr('points', `0,${y} ${PENNANT_W},${y - BARB_SPACING / 2} 0,${y - BARB_SPACING}`)
-      .attr('fill', color)
-      .attr('stroke', color)
-      .attr('stroke-width', 0.5);
-    y -= BARB_SPACING + 1;
-    remaining -= 50;
-  }
-  // Full barbs (10 kt)
-  while (remaining >= 10) {
-    inner.append('line')
-      .attr('x1', 0).attr('y1', y)
-      .attr('x2', BARB_LEN).attr('y2', y - BARB_SPACING)
-      .attr('stroke', color)
-      .attr('stroke-width', 1.5);
-    y -= BARB_SPACING;
-    remaining -= 10;
-  }
-  // Half barb (5 kt)
-  if (remaining >= 5) {
-    inner.append('line')
-      .attr('x1', 0).attr('y1', y)
-      .attr('x2', BARB_LEN / 2).attr('y2', y - BARB_SPACING / 2)
-      .attr('stroke', color)
-      .attr('stroke-width', 1.5);
-  }
+/** Round a duration up to the nearest 30-minute increment (min 30 min). */
+function roundToHalfHour(ms) {
+  const HALF_HR = 30 * 60000;
+  return Math.max(HALF_HR, Math.round(ms / HALF_HR) * HALF_HR);
 }
 
-/** Draw the wind panel — barbs only, y axis = speed */
+/** Human-readable duration in half-hour increments, e.g. "30 min", "1.5 hr", "2 d" */
+function formatDuration(ms) {
+  const rounded = roundToHalfHour(ms);
+  const min = rounded / 60000;
+  if (min < 60) return `${min} min`;
+  const hr = min / 60;
+  if (hr < 48) return `${hr % 1 === 0 ? hr : hr.toFixed(1)} hr`;
+  const days = hr / 24;
+  return `${days % 1 === 0 ? days : days.toFixed(1)} d`;
+}
+
+/**
+ * Circular mean of a set of compass-bearing directions (degrees, 0=N, 90=E).
+ * Returns null if no valid directions.
+ */
+function circularMeanDeg(rows, getDir) {
+  let sx = 0, sy = 0, n = 0;
+  for (const r of rows) {
+    const d = getDir(r);
+    if (d === null || d === undefined) continue;
+    const rad = d * Math.PI / 180;
+    sx += Math.sin(rad);
+    sy += Math.cos(rad);
+    n++;
+  }
+  if (!n) return null;
+  const deg = Math.atan2(sx, sy) * 180 / Math.PI;
+  return (deg + 360) % 360;
+}
+
+/**
+ * Draw a small arrow at the origin of `g`, pointing toward `dirTo_deg`
+ * (compass bearing, 0=N/up, clockwise) — i.e. the direction the wind blows TO.
+ */
+function drawWindArrow(g, dirTo_deg, color) {
+  const LEN = 11;
+  const inner = g.append('g').attr('transform', `rotate(${dirTo_deg})`);
+  inner.append('line')
+    .attr('x1', 0).attr('y1', LEN / 2)
+    .attr('x2', 0).attr('y2', -LEN / 2)
+    .attr('stroke', color)
+    .attr('stroke-width', 1.5);
+  inner.append('path')
+    .attr('d', `M0,${-LEN / 2 - 3} L-3,${-LEN / 2 + 2} L3,${-LEN / 2 + 2} Z`)
+    .attr('fill', color);
+}
+
+/** Draw the wind panel — speed line/dots (like other panels) plus
+ *  direction arrows in per-station rows below the x-axis. */
 function drawWindPanel(datasets) {
   const panelEl = document.getElementById('panel-wind');
   if (!panelEl) return;
   const oldMsg = panelEl.querySelector('.no-data-msg');
   if (oldMsg) oldMsg.remove();
 
-  const { svg, innerW, innerH } = getOrCreatePanelSvg('wind');
-  const root = svg.select('.chart-root');
-
   const activeDatasets = datasets.filter(({ rows }) =>
-    rows.some(r => r.wind_spd !== null && r.wind_dir !== null)
+    rows.some(r => r.wind_spd !== null)
   );
+
+  const extraBottom = ARROW_TOP_PAD + Math.max(1, activeDatasets.length) * ARROW_ROW_H + ARROW_LABEL_H;
+  const { svg, innerW, innerH } = getOrCreatePanelSvg('wind', extraBottom);
+  const root = svg.select('.chart-root');
 
   // --- Add Y-axis controls to header if missing ---
   let controls = panelEl.querySelector('.y-controls');
@@ -537,19 +541,20 @@ function drawWindPanel(datasets) {
       if (r.wind_spd !== null && r.time >= t0 && r.time <= t1) allSpeeds.push(r.wind_spd);
     }
   }
-  let maxSpd = d3.max(allSpeeds) || 10;
-  let minSpd = 0;
+  let maxSpd = d3.max(allSpeeds);
+  if (maxSpd === undefined) maxSpd = 10;
+  let yMin = 0, yMax = maxSpd * 1.12 || 10;
   if (manual) {
-    if (manual[0] !== null) minSpd = manual[0];
-    if (manual[1] !== null) maxSpd = manual[1];
+    if (manual[0] !== null) yMin = manual[0];
+    if (manual[1] !== null) yMax = manual[1];
   }
 
   const yScale = d3.scaleLinear()
-    .domain([minSpd, manual && manual[1] !== null ? maxSpd : maxSpd * 1.12])
+    .domain([yMin, yMax])
     .range([innerH, 0])
     .nice();
 
-  root.selectAll('.axis,.grid,.data-layer').remove();
+  root.selectAll('.axis,.grid,.data-layer,.arrow-layer,.arrow-caption').remove();
 
   // Grid
   const gridG = root.append('g').attr('class', 'grid');
@@ -568,32 +573,88 @@ function drawWindPanel(datasets) {
   root.append('g').attr('class', 'axis y-axis')
     .call(d3.axisLeft(yScale).ticks(5).tickSizeOuter(0));
 
-  // Wind barbs per station
+  // --- Speed line + dots per station (clipped to plot area) ---
   for (const { code, rows } of activeDatasets) {
     const color = stationColor(code);
-    const visible = rows.filter(r =>
-      r.time >= t0 && r.time <= t1 &&
-      r.wind_spd !== null && r.wind_dir !== null
-    );
+    const visible = rows.filter(r => r.time >= t0 && r.time <= t1);
 
-    // Subsample: target ~1 barb per 30px
-    const targetCount = Math.max(1, Math.floor(innerW / 15));
-    const step = Math.max(1, Math.floor(visible.length / targetCount));
-    const sampled = visible.filter((_, i) => i % step === 0);
+    const g = root.append('g').attr('class', 'data-layer')
+      .attr('clip-path', 'url(#clip-wind)');
 
-    const g = root.append('g').attr('class', 'data-layer');
-
-    for (const r of sampled) {
-      const cx = xScale(r.time);
-      const cy = yScale(r.wind_spd);
-      const barbG = g.append('g')
-        .attr('transform', `translate(${cx},${cy})`)
-        .attr('class', 'wind-barb');
-      drawWindBarb(barbG, r.wind_spd, r.wind_dir, color);
+    const segments = splitOnGaps(visible, r => r.wind_spd);
+    for (const seg of segments) {
+      g.append('path')
+        .datum(seg)
+        .attr('class', 'data-line')
+        .attr('stroke', color)
+        .attr('d', d3.line()
+          .defined(r => r.wind_spd !== null)
+          .x(r => xScale(r.time))
+          .y(r => yScale(r.wind_spd)));
     }
+
+    const dotStep = Math.max(1, Math.floor(visible.length / (innerW / 4)));
+    const dotData = visible.filter((r, i) => i % dotStep === 0 && r.wind_spd !== null);
+    g.selectAll('circle')
+      .data(dotData)
+      .join('circle')
+      .attr('class', 'data-dot')
+      .attr('cx', r => xScale(r.time))
+      .attr('cy', r => yScale(r.wind_spd))
+      .attr('r', 2.5)
+      .attr('fill', color)
+      .attr('stroke', '#fff')
+      .attr('stroke-width', 1);
   }
 
+  // --- Direction arrows: one row per station below the x-axis ---
+  // Target ~1 arrow per BUCKET_PX, but snap the actual averaging
+  // window to a 30-min increment so it matches the caption exactly.
+  const BUCKET_PX = 35;
+  const targetDurationMs = (t1 - t0) / Math.max(1, Math.round(innerW / BUCKET_PX));
+  const bucketDurationMs = roundToHalfHour(targetDurationMs);
+  const numBuckets = Math.max(1, Math.round((t1 - t0) / bucketDurationMs));
+  const bucketW = innerW / numBuckets;
+
+  activeDatasets.forEach(({ code, rows }, stationIdx) => {
+    const color = stationColor(code);
+    const rowY = innerH + ARROW_TOP_PAD + stationIdx * ARROW_ROW_H + ARROW_ROW_H / 2;
+    const arrowG = root.append('g').attr('class', 'arrow-layer');
+
+    for (let i = 0; i < numBuckets; i++) {
+      const xStart = i * bucketW, xEnd = (i + 1) * bucketW;
+      const tStart = xScale.invert(xStart), tEnd = xScale.invert(xEnd);
+      const bucketRows = rows.filter(r => r.time >= tStart && r.time < tEnd && r.wind_dir !== null);
+      if (!bucketRows.length) continue;
+      const meanFrom = circularMeanDeg(bucketRows, r => r.wind_dir);
+      if (meanFrom === null) continue;
+      const dirTo = (meanFrom + 180) % 360; // blowing TO
+      const cx = (xStart + xEnd) / 2;
+      drawWindArrow(
+        arrowG.append('g').attr('transform', `translate(${cx},${rowY})`),
+        dirTo, color
+      );
+    }
+  });
+
+  // Label explaining the averaging period represented by each arrow
+  const labelY = innerH + ARROW_TOP_PAD + Math.max(1, activeDatasets.length) * ARROW_ROW_H + ARROW_LABEL_H - 3;
+  root.append('text')
+    .attr('class', 'arrow-caption')
+    .attr('x', innerW / 2)
+    .attr('y', labelY)
+    .attr('text-anchor', 'middle')
+    .attr('fill', 'var(--text-muted)')
+    .attr('font-size', 10.5)
+    .text(`↓ arrows show mean direction (blowing to), avg. per ${formatDuration(bucketDurationMs)}`);
+
   attachZoom(svg, 'wind', innerW, innerH);
+  attachCrosshair(svg, 'wind', xScale, yScale, innerW, innerH, activeDatasets, PANELS.find(p => p.id === 'wind'),
+    r => {
+      if (r.wind_dir === null || r.wind_dir === undefined) return '';
+      const dirTo = (r.wind_dir + 180) % 360;
+      return ` → ${Math.round(dirTo)}° ${degToCardinal(dirTo)}`;
+    });
 }
 
 // ─── Zoom/pan (linked) ────────────────────────────────────────
@@ -655,7 +716,14 @@ function attachZoom(svg, panelId, innerW, innerH) {
 }
 
 // ─── Crosshair tooltip ───────────────────────────────────────
-function attachCrosshair(svg, panelId, xScale, yScale, innerW, innerH, datasets, panel) {
+/** Convert a compass bearing (degrees) to a 16-point cardinal label. */
+function degToCardinal(deg) {
+  const dirs = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE',
+    'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW'];
+  return dirs[Math.round(((deg % 360) + 360) % 360 / 22.5) % 16];
+}
+
+function attachCrosshair(svg, panelId, xScale, yScale, innerW, innerH, datasets, panel, extraFn) {
   const root = svg.select('.chart-root');
   const tooltip = document.getElementById('tooltip');
   // Move zoom overlay to top so it receives pointer events
@@ -675,14 +743,14 @@ function attachCrosshair(svg, panelId, xScale, yScale, innerW, innerH, datasets,
         const idx = bisect(vis, t);
         const r = vis[idx];
         if (!r) continue;
-        lines.push({ code, val: fieldForPanel(panel, r), time: r.time });
+        lines.push({ code, val: fieldForPanel(panel, r), time: r.time, row: r });
       }
       if (!lines.length) return;
       const timeStr = d3.utcFormat('%Y-%m-%d %H:%M UTC+13')(lines[0].time);
       const rows = lines.map(l =>
         `<div class="tooltip-row">
            <span class="tooltip-label" style="color:${stationColor(l.code)}">${stationLabel(l.code)}</span>
-           <span class="tooltip-value">${panel.fmt(l.val)} ${panel.unit}</span>
+           <span class="tooltip-value">${panel.fmt(l.val)} ${panel.unit}${extraFn ? extraFn(l.row) : ''}</span>
          </div>`
       ).join('');
       tooltip.innerHTML = `<div class="tooltip-time">${timeStr}</div>${rows}`;

@@ -405,6 +405,7 @@ body {
   border-radius: 4px;
   background: var(--surface);
   color: var(--text-primary);
+  appearance: textfield;
   -moz-appearance: textfield;
   /* Hide arrows in Firefox */
 }
@@ -476,15 +477,6 @@ body {
   r: 2.5;
 }
 
-.wind-barb {
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  fill: none;
-}
-
-.wind-barb-pennant {
-  /* filled */
-}
 
 .zoom-overlay {
   fill: none;
@@ -504,7 +496,7 @@ body {
   font-size: 12px;
   line-height: 1.6;
   z-index: 1000;
-  max-width: 220px;
+  max-width: 280px;
   opacity: 0;
   transition: opacity 0.1s;
 }
@@ -527,11 +519,13 @@ body {
 
 .tooltip-label {
   color: var(--text-secondary);
+  white-space: nowrap;
 }
 
 .tooltip-value {
   font-family: var(--mono);
   font-weight: 600;
+  white-space: nowrap;
 }
 
 /* --- Responsive -------------------------------------------- */
