@@ -54,7 +54,7 @@ const PANEL_HEIGHT = 160; // inner chart height in px
 const state = {
   activeStations: [],      // array of station codes currently selected
   cache: new Map(),        // code → parsed data array
-  timeDomain: [new Date(Date.now() - 7 * 24 * 3600000), new Date()], // Default to 7 days to match HTML
+  timeDomain: null,        // domain [start, end] in UTC+13 time (null = auto from presets/data)
   panelVisible: Object.fromEntries(PANELS.map(p => [p.id, p.id !== 'battery'])),
   manualY: {},             // per-panel manual Y domain: { panelId: [min, max] }
   // shared D3 scales (time axis linked across panels)
@@ -79,9 +79,34 @@ function num(v) {
   return isNaN(n) ? null : n;
 }
 
+function toLocalISOString(d) {
+  const pad = n => n.toString().padStart(2, '0');
+  return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())}T${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`;
+}
+
+function parseInputDate(val) {
+  if (!val) return null;
+  let s = val.trim().replace(' ', 'T');
+  if (s.length === 16) s += ':00';
+  if (!s.endsWith('Z')) s += 'Z';
+  return new Date(s);
+}
+
 function parseRow(d) {
+  let time = null;
+  if (d.timestamp_utc) {
+    // d.timestamp_utc is formatted like "2026-06-24T17:00:00+13:00"
+    // The timestamp numbers (17:00:00) represent the UTC+13 local station time.
+    // Parse the ISO string as UTC ('Z') so d3.scaleUtc and d3.utcFormat
+    // display wall-clock UTC+13 time without offset shifting.
+    let ts = d.timestamp_utc.trim().replace(' ', 'T');
+    if (ts.length >= 19) {
+      ts = ts.slice(0, 19) + 'Z';
+    }
+    time = new Date(ts);
+  }
   return {
-    time: new Date(d.timestamp_utc),
+    time,
     temp: num(d.air_temp_3m),
     humidity: num(d.rel_hum_3m),
     pressure: num(d.barom_pres),
@@ -148,7 +173,13 @@ function globalExtent() {
 }
 
 function effectiveTimeDomain() {
-  return state.timeDomain || globalExtent() || [new Date(Date.now() - 86400000), new Date()];
+  if (state.timeDomain) return state.timeDomain;
+  const ext = globalExtent();
+  if (!ext) return [new Date(Date.now() - 7 * 24 * 3600000), new Date()];
+  // Default to 7 days before max data timestamp to match default active "7 d" preset
+  const end = ext[1];
+  const start = new Date(end.getTime() - 7 * 24 * 3600000);
+  return [start, end];
 }
 
 // ─── Chart drawing ────────────────────────────────────────────
@@ -249,17 +280,25 @@ function drawScalarPanel(panel, datasets) {
   }
 
   const xScale = buildXScale(innerW);
+  const [t0, t1] = effectiveTimeDomain();
 
-  // Compute y domain across all active datasets
+  // Compute y domain across currently displayed data in active time window
   let allVals = [];
   for (const { rows } of activeDatasets) {
     for (const r of rows) {
-      const v = fieldForPanel(panel, r);
-      if (v !== null) allVals.push(v);
+      if (r.time >= t0 && r.time <= t1) {
+        const v = fieldForPanel(panel, r);
+        if (v !== null) allVals.push(v);
+      }
     }
   }
   let [yMin, yMax] = d3.extent(allVals);
-  if (yMin === undefined) [yMin, yMax] = [0, 10]; // Fallback if no data in view
+  if (yMin === undefined) {
+    // Fallback if no data in current visible time window
+    const unconstrained = activeDatasets.flatMap(d => d.rows).map(r => fieldForPanel(panel, r)).filter(v => v !== null);
+    [yMin, yMax] = d3.extent(unconstrained);
+    if (yMin === undefined) [yMin, yMax] = [0, 10];
+  }
   let yPad = (yMax - yMin) * 0.08 || 1;
 
   if (manual) {
@@ -682,6 +721,15 @@ async function redrawPanels() {
     }))
   );
 
+  // Sync custom date inputs with effective time domain
+  const [startD, endD] = effectiveTimeDomain();
+  const startInput = document.getElementById('date-start');
+  const endInput = document.getElementById('date-end');
+  if (startInput && endInput && startD && endD && document.activeElement !== startInput && document.activeElement !== endInput) {
+    startInput.value = toLocalISOString(startD);
+    endInput.value = toLocalISOString(endD);
+  }
+
   // Scalar panels
   for (const panel of PANELS) {
     const panelEl = document.getElementById(`panel-${panel.id}`);
@@ -785,10 +833,11 @@ function initTimeControls() {
       const hours = btn.dataset.hours;
 
       if (hours === 'all') {
-        state.timeDomain = null;
+        state.timeDomain = globalExtent();
       } else {
-        const end = new Date();
-        const start = new Date(end - hours * 3600000);
+        const ext = globalExtent();
+        const end = ext ? ext[1] : new Date();
+        const start = new Date(end.getTime() - hours * 3600000);
         state.timeDomain = [start, end];
       }
       redrawPanels();
