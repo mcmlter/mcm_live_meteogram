@@ -1,7 +1,8 @@
-import os
 import io
-import requests
+import os
+
 import pandas as pd
+import requests
 
 # 1. Define the 11 target sites
 sites = [
@@ -73,7 +74,7 @@ for site in sites:
             df.rename(columns={"Eppley_SwRadIn_Avg": "SwRadIn"}, inplace=True)
 
         # Filter for only the columns that exist in our mapping dictionary
-        valid_cols = [col for col in col_mapping.keys() if col in df.columns]
+        valid_cols = [col for col in col_mapping if col in df.columns]
         df_filtered = df[valid_cols].copy()
 
         # Rename the columns to match the target CSV schema
@@ -106,7 +107,7 @@ for site in sites:
 
     except requests.exceptions.HTTPError as http_err:
         print(f"-> HTTP Error for {site_upper} (Check if URL exists): {http_err}")
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         print(f"-> Failed to process {site_upper}: {e}")
 
 print("\nProcessing complete!")
